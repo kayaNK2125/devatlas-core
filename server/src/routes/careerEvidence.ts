@@ -101,7 +101,10 @@ router.get('/api/v1/analyses/:id/career-evidence', (req: Request, res: Response)
     analysisId: analysis.id,
     repository: {
       path: analysis.repoPath,
-      name: path.basename(analysis.repoPath) || 'root',
+      name: analysis.repoName || path.basename(analysis.repoPath) || 'root',
+      sourceType: analysis.sourceType || 'local',
+      gitHubUrl: analysis.gitHubUrl,
+      commitSha: analysis.commitSha,
       totalFiles: analysis.summary.totalFiles,
       totalDependencies: analysis.summary.totalDependencies
     },

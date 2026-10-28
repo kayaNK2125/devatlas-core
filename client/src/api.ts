@@ -40,6 +40,15 @@ export async function analyzeRepository(repoPath: string): Promise<AnalyzeRespon
   return handleResponse<AnalyzeResponse>(res);
 }
 
+export async function importGitHubRepository(repositoryUrl: string): Promise<AnalyzeResponse> {
+  const res = await fetch(`${API_BASE}/api/v1/repositories/import-github`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ repositoryUrl })
+  });
+  return handleResponse<AnalyzeResponse>(res);
+}
+
 export async function analyzeImpact(analysisId: string, targetFile: string): Promise<ImpactResponse> {
   const res = await fetch(`${API_BASE}/api/v1/impact`, {
     method: 'POST',

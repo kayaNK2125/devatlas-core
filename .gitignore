@@ -42,6 +42,8 @@ temp/
 *.tmp
 *.temp
 .vite/
+.temp-workspaces/
+**/.temp-workspaces/
 
 # Secrets & Private Keys
 *.pem

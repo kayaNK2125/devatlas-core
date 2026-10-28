@@ -9,6 +9,7 @@ import { EmptyState } from './components/EmptyState';
 import {
   fetchHealth,
   analyzeRepository,
+  importGitHubRepository,
   analyzeImpact,
   fetchCareerEvidence,
   ApiError
@@ -95,6 +96,39 @@ export const App: React.FC = () => {
     }
   };
 
+  // Handle GitHub repository import
+  const handleImportGitHub = async (url: string) => {
+    if (!url.trim()) return;
+
+    setIsLoading(true);
+    setError(null);
+    setSelectedFile(null);
+    setImpactResult(null);
+
+    try {
+      const data = await importGitHubRepository(url);
+      setAnalysis(data);
+
+      const defaultTarget =
+        data.graph.nodes.find(n => n.id.includes('crypto.ts'))?.id ||
+        data.graph.nodes.find(n => !n.isTest && n.importedByCount > 0)?.id ||
+        data.graph.nodes[0]?.id;
+
+      if (defaultTarget) {
+        setSelectedFile(defaultTarget);
+        handleRunImpact(defaultTarget, data.analysisId);
+      }
+    } catch (err: unknown) {
+      if (err instanceof ApiError) {
+        setError(err.message);
+      } else {
+        setError(err instanceof Error ? err.message : 'Failed to import GitHub repository');
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleSelectFile = (filePath: string) => {
     setSelectedFile(filePath);
     handleRunImpact(filePath);
@@ -127,6 +161,7 @@ export const App: React.FC = () => {
           repoPath={repoPath}
           setRepoPath={setRepoPath}
           onAnalyze={() => handleAnalyze()}
+          onImportGitHub={handleImportGitHub}
           isLoading={isLoading}
           allowedRoot={health?.allowedRoot}
           error={error}
@@ -137,6 +172,11 @@ export const App: React.FC = () => {
             <OverviewMetrics
               summary={analysis.summary}
               languages={analysis.languages}
+              repoPath={analysis.repoPath}
+              sourceType={analysis.sourceType}
+              gitHubUrl={analysis.gitHubUrl}
+              commitSha={analysis.commitSha}
+              repoName={analysis.repoName}
             />
 
             <div className="workspace-grid">

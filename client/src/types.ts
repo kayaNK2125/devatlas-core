@@ -53,6 +53,10 @@ export interface AnalysisSummary {
 export interface AnalyzeResponse {
   analysisId: string;
   repoPath: string;
+  repoName?: string;
+  sourceType?: 'local' | 'github';
+  gitHubUrl?: string;
+  commitSha?: string;
   scannedAt: string;
   summary: AnalysisSummary;
   graph: DependencyGraph;
@@ -109,6 +113,9 @@ export interface CareerEvidence {
   repository: {
     path: string;
     name: string;
+    sourceType?: 'local' | 'github';
+    gitHubUrl?: string;
+    commitSha?: string;
     totalFiles: number;
     totalDependencies: number;
   };

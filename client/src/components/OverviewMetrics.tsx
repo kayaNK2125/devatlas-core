@@ -1,13 +1,26 @@
 import React from 'react';
-import { Files, Network, TestTube2, Code2, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { Files, Network, TestTube2, Code2, AlertTriangle, CheckCircle2, Globe, FolderGit2, GitCommit } from 'lucide-react';
 import { AnalysisSummary, LanguageStat } from '../types';
 
 interface OverviewMetricsProps {
   summary: AnalysisSummary;
   languages: LanguageStat[];
+  repoPath?: string;
+  sourceType?: 'local' | 'github';
+  gitHubUrl?: string;
+  commitSha?: string;
+  repoName?: string;
 }
 
-export const OverviewMetrics: React.FC<OverviewMetricsProps> = ({ summary, languages }) => {
+export const OverviewMetrics: React.FC<OverviewMetricsProps> = ({
+  summary,
+  languages,
+  repoPath,
+  sourceType,
+  gitHubUrl,
+  commitSha,
+  repoName
+}) => {
   const primaryLang = languages[0]?.name || 'TypeScript';
   const testRatio =
     summary.totalFiles > 0
@@ -15,7 +28,97 @@ export const OverviewMetrics: React.FC<OverviewMetricsProps> = ({ summary, langu
       : 0;
 
   return (
-    <div className="metrics-grid">
+    <div style={{ marginBottom: '24px' }}>
+      {/* Repository Provenance Banner */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '10px 16px',
+        background: 'var(--bg-surface)',
+        border: '1px solid var(--border-subtle)',
+        borderRadius: 'var(--radius-md)',
+        marginBottom: '16px',
+        fontSize: '0.85rem'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {sourceType === 'github' ? (
+            <>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                padding: '2px 8px',
+                borderRadius: 'var(--radius-full)',
+                background: 'rgba(6, 182, 212, 0.15)',
+                color: 'var(--accent-cyan)',
+                border: '1px solid rgba(6, 182, 212, 0.3)',
+                fontSize: '0.72rem',
+                fontWeight: 700
+              }}>
+                <Globe size={12} />
+                <span>GITHUB REPO</span>
+              </div>
+              <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>
+                {repoName || repoPath}
+              </span>
+              {gitHubUrl && (
+                <a
+                  href={gitHubUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    color: 'var(--accent-cyan)',
+                    textDecoration: 'none',
+                    fontSize: '0.78rem',
+                    fontFamily: 'var(--font-mono)'
+                  }}
+                >
+                  {gitHubUrl}
+                </a>
+              )}
+            </>
+          ) : (
+            <>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                padding: '2px 8px',
+                borderRadius: 'var(--radius-full)',
+                background: 'rgba(99, 102, 241, 0.15)',
+                color: '#a5b4fc',
+                border: '1px solid rgba(99, 102, 241, 0.3)',
+                fontSize: '0.72rem',
+                fontWeight: 700
+              }}>
+                <FolderGit2 size={12} />
+                <span>LOCAL WORKSPACE</span>
+              </div>
+              <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)' }}>
+                {repoPath}
+              </span>
+            </>
+          )}
+        </div>
+
+        {commitSha && commitSha !== 'unknown' && (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            fontFamily: 'var(--font-mono)',
+            fontSize: '0.75rem',
+            color: 'var(--text-muted)'
+          }}>
+            <GitCommit size={14} />
+            <span>Commit: <strong style={{ color: 'var(--text-secondary)' }}>{commitSha.slice(0, 7)}</strong></span>
+          </div>
+        )}
+      </div>
+
+      {/* Metrics Cards Grid */}
+      <div className="metrics-grid" style={{ marginBottom: 0 }}>
       <div className="glass-card metric-card">
         <div className="metric-header">
           <span className="metric-title">Repository Files</span>
@@ -99,6 +202,7 @@ export const OverviewMetrics: React.FC<OverviewMetricsProps> = ({ summary, langu
           {summary.circularDependencyChainsCount === 0 ? 'Clean acyclic architecture' : 'Dependency cycles detected'}
         </div>
       </div>
+    </div>
     </div>
   );
 };

@@ -84,6 +84,10 @@ export interface AnalysisRecord {
   testFiles: string[];
   circularDependencies: string[][];
   rawFiles: Map<string, FileAnalysis>;
+  sourceType?: 'local' | 'github';
+  gitHubUrl?: string;
+  commitSha?: string;
+  repoName?: string;
 }
 
 export interface AffectedFile {

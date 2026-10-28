@@ -66,9 +66,39 @@ FINAL_YEAR/
 - Computes an explainable heuristic risk score (0–100) and risk tier (`Low`, `Moderate`, `High`, `Critical`).
 - *Important Disclaimer*: Clearly labeled as a heuristic static estimate, not a calibrated failure probability.
 
-### 4. CareerLens Evidence Contract
+### 4. GitHub Repository Import & Analysis
+- **Direct Public Import**: Paste any public GitHub repository URL into the DevAtlas UI or send a request to `POST /api/v1/repositories/import-github`. Analyzes repositories directly without manual download or copying into local roots.
+- **Supported URL Formats**:
+  - Canonical repository: `https://github.com/owner/repository` (or `https://www.github.com/owner/repository`)
+  - Optional `.git` suffix: `https://github.com/owner/repository.git`
+  - Optional branch/ref: `https://github.com/owner/repository/tree/main` or `https://github.com/owner/repository/tree/feature/v1`
+  - *Rejected*: Non-HTTPS schemes (`http://`, `git://`), arbitrary hosts (`gitlab.com`, private hostnames), embedded credentials (`user:token@github.com`), path traversal sequences (`/..`), and extra path segments (`/issues`, `/pulls`).
+- **Secure Shallow Fetching**:
+  - Uses the system Git binary via process API (`child_process.spawn`) with an explicit argument array (`shell: false`). No shell interpolation.
+  - Clone flags: `--depth 1 --single-branch --no-tags --no-recurse-submodules`.
+  - Non-interactive: `GIT_TERMINAL_PROMPT=0` and `GIT_ASKPASS=''` prevent interactive prompt hanging on private or missing repos.
+  - Strict host verification to prevent Server-Side Request Forgery (SSRF).
+  - Never executes scripts, install hooks, or application code contained in imported repositories.
+- **Size, Timeout & Resource Limits**:
+  - Maximum repository payload size: 50 MB (`DEVATLAS_MAX_REPO_SIZE_BYTES`).
+  - Git clone timeout: 45 seconds (`DEVATLAS_GIT_CLONE_TIMEOUT_MS`).
+  - File count limit: 2,000 files (`DEVATLAS_MAX_FILE_COUNT`).
+  - Individual file size: 2 MB (`DEVATLAS_MAX_FILE_SIZE_BYTES`).
+- **Isolated Workspaces & Safe Cleanup**:
+  - Checked out into isolated, server-generated temporary workspaces in `.temp-workspaces/gh-<uuid>`.
+  - Cleanup runs automatically in a `finally` block on **both success and failure**.
+  - `safeRemoveDirectory` verifies strict containment within the temporary workspace root, refusing to delete anything outside.
+  - Incomplete imports, oversized repos, and failed clones are immediately purged.
+- **In-Memory Retention & Provenance**:
+  - Reuses the existing RepoAtlas scanner, TypeScript Compiler API AST parser, and HTML script parser.
+  - Captures repository provenance: `sourceType: 'github'`, canonical `gitHubUrl`, resolved `commitSha`, and `repoName`.
+  - The parsed dependency graph and CareerLens evidence are retained in-memory for the current session, enabling interactive ChangeScope impact analysis and CareerLens evidence generation even after the temporary source directory is deleted.
+  - *Note*: In-memory sessions do not survive backend server restarts.
+
+### 5. CareerLens Evidence Contract
 - Exposes structured telemetry (`GET /api/v1/analyses/:id/career-evidence`) formatted for integration with a separate CareerLens application without database access.
 - Validated against JSON Schema `draft/2020-12`.
+- Tracks repository provenance (`sourceType`, `gitHubUrl`, `commitSha`) alongside graph metrics and change impact telemetry.
 
 ---
 
@@ -183,6 +213,49 @@ Scans a repository within the allowed root and constructs the dependency graph.
   }
   ```
 
+### `POST /api/v1/repositories/import-github`
+Imports, shallow clones, and analyzes a public GitHub repository. Retains the analysis in-memory and safely cleans up temporary files.
+- **Request Body**:
+  ```json
+  {
+    "repositoryUrl": "https://github.com/kayaNK2125/devatlas-core"
+  }
+  ```
+- **Response**:
+  ```json
+  {
+    "analysisId": "fa809cb8-b2e7-494d-b6a6-0f4f9f7dcbe0",
+    "repoPath": "kayaNK2125/devatlas-core",
+    "repoName": "devatlas-core",
+    "sourceType": "github",
+    "gitHubUrl": "https://github.com/kayaNK2125/devatlas-core",
+    "commitSha": "4b12d79047b744d084742a7da93ce4e0d9959f63",
+    "scannedAt": "2026-10-28T12:00:00.000Z",
+    "summary": {
+      "totalFiles": 35,
+      "totalDependencies": 48,
+      "testFilesCount": 7,
+      "languages": { "TypeScript": 28, "TSX": 6, "JavaScript": 1 },
+      "packagesCount": 18,
+      "circularDependencyChainsCount": 0
+    },
+    "graph": {
+      "nodes": [ ... ],
+      "edges": [ ... ]
+    },
+    "languages": [ ... ],
+    "packages": [ ... ],
+    "testFiles": [ ... ],
+    "circularDependencies": []
+  }
+  ```
+- **Error Responses**:
+  - `400 INVALID_GITHUB_URL` / `UNSUPPORTED_HOST` / `CREDENTIALS_NOT_ALLOWED`: Invalid or non-github.com URL format.
+  - `404 REPOSITORY_NOT_FOUND`: Repository not found or private (DevAtlas Core imports public repositories without PAT).
+  - `413 REPO_TOO_LARGE`: Repository source exceeds 50 MB limit.
+  - `422 NO_SOURCE_FILES_FOUND`: Repository contains no supported JavaScript/TypeScript/HTML source files.
+  - `504 CLONE_TIMEOUT`: Git shallow clone timed out (> 45s).
+
 ### `POST /api/v1/impact`
 Computes the blast radius and heuristic risk for a target source file.
 - **Request Body**:
@@ -257,29 +330,34 @@ Returns the JSON Schema specification for CareerLens.
 
 ## Demo Walkthrough
 
+### Option A: Analyze a Public GitHub Repository
 1. Start the application with `npm run dev`.
-2. Open `http://localhost:3000`.
-3. In the repository bar, the input defaults to `sample-repo` (or click **Use Sample Repo**).
-4. Click **Analyze Repository**.
-5. Observe **RepoAtlas** rendering:
-   - Metric cards: Total Source Files, Code Dependencies, Automated Tests, Primary Language, and Circular Cycles.
-   - Cytoscape.js interactive graph with zoom, pan, layout toggles (Dagre, Cose, Concentric), and live search.
-6. Test **ChangeScope**:
-   - Click on `src/utils/crypto.ts` in the graph or select it in the panel dropdown.
-   - The graph highlights `crypto.ts` in amber, its direct dependents in orange, and its transitive dependents in red, while dimming unaffected nodes.
-   - Inspect the **ChangeScope Risk Card**: Score, qualitative level, plain-English factor breakdown, and heuristic disclaimer.
-   - Check the **Candidate Tests to Run** list (`test/crypto.test.ts`).
-7. Test **CareerLens Evidence**:
-   - Click **CareerLens Evidence** in the top navigation bar.
-   - Inspect the structured JSON artifact. Copy or download it.
-8. Test **Security Containment**:
-   - Try entering `../../Windows` or `../` in the repository input.
-   - Notice the immediate HTTP 403 `PATH_TRAVERSAL_DENIED` error banner.
+2. Open [http://localhost:3000](http://localhost:3000).
+3. Switch to the **Public GitHub Repository** tab.
+4. Paste a GitHub repository URL (e.g. `https://github.com/kayaNK2125/devatlas-core` or click **Use devatlas-core**).
+5. Click **Analyze GitHub Repository**:
+   - The backend shallow-clones the repo into an isolated temporary workspace with `--depth 1 --single-branch --no-tags --no-recurse-submodules`.
+   - The AST scanner and dependency graph engine analyze the repository without executing any untrusted code.
+   - The temporary checkout is immediately cleaned up.
+6. Observe the results:
+   - Provenance banner displaying the repository badge, clickable GitHub repository link, and resolved Git commit SHA.
+   - Scanned file counts, detected languages, external packages, and interactive Cytoscape dependency graph.
+7. Run **ChangeScope**: Select any file in the graph or dropdown to evaluate its change blast radius and heuristic risk tier.
+8. Inspect **CareerLens Evidence**: Click the **CareerLens Evidence** button to view structured telemetry containing both repository provenance (`sourceType: 'github'`, `gitHubUrl`, `commitSha`) and graph analysis metrics.
+
+### Option B: Local Repository Scanner
+1. Switch to the **Local Repository** tab.
+2. Enter `sample-repo` (or click **Use Sample Repo** / **Use demo-shop-easy**).
+3. Click **Analyze Local Repository**.
+4. Test **Security Containment**: Try entering `../../Windows` or `../` in the repository path. Notice the immediate HTTP 403 `PATH_TRAVERSAL_DENIED` error banner.
 
 ---
 
-## Limitations & Future Work
+## Limitations & Future Scope
 
-- **Static Resolution Only**: Dynamic runtime path calculations (e.g. `require(computedPath)`) are recognized as dynamic imports but cannot resolve target local files statically.
-- **In-Memory Store**: Analysis sessions are stored in-memory during this MVP demo. Production scaling would benefit from Redis or persistent storage.
+- **Supported Languages & File Types**: Static analysis currently supports JavaScript (`.js`, `.jsx`, `.mjs`, `.cjs`), TypeScript (`.ts`, `.tsx`), and HTML script dependencies (`.html`). Python, Go, Java, or Rust are not supported in this version.
+- **Repository Scope**: Only public repositories hosted on `github.com` are supported. Private repository authentication (Personal Access Tokens / OAuth) is excluded by design for this milestone.
+- **Static Resolution Only**: Dynamic runtime path calculations (e.g. `require(computedVar)`) are marked as dynamic imports but cannot resolve target local files statically.
 - **Pre-bundler Path Aliases**: Custom `tsconfig.json` `compilerOptions.paths` aliases can be added in subsequent milestones.
+- **In-Memory Store Lifecycle**: Analysis sessions are cached in-memory during the server runtime. In-memory analyses do not survive backend server restarts.
+- **Resource Limits**: Configured limits apply: max repository payload size 50 MB, clone timeout 45 seconds, max file count 2,000 files, and max individual file size 2 MB.

@@ -4,6 +4,7 @@ import healthRouter from './routes/health';
 import analyzeRouter from './routes/analyze';
 import impactRouter from './routes/impact';
 import careerEvidenceRouter from './routes/careerEvidence';
+import importGithubRouter from './routes/importGithub';
 
 export const app = express();
 
@@ -23,6 +24,7 @@ app.use(healthRouter);
 app.use(analyzeRouter);
 app.use(impactRouter);
 app.use(careerEvidenceRouter);
+app.use(importGithubRouter);
 
 // 404 handler
 app.use((req: Request, res: Response) => {
