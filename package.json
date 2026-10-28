@@ -1,0 +1,19 @@
+{
+  "name": "devatlas-workspace",
+  "version": "1.0.0",
+  "private": true,
+  "description": "DevAtlas Core - Repository Intelligence (RepoAtlas) & Change Impact Analysis (ChangeScope)",
+  "scripts": {
+    "install:all": "npm install && cd server && npm install && cd ../client && npm install",
+    "dev": "concurrently -n \"SERVER,CLIENT\" -c \"cyan,magenta\" \"npm run dev:server\" \"npm run dev:client\"",
+    "dev:server": "cd server && npm run dev",
+    "dev:client": "cd client && npm run dev",
+    "test": "cd server && npm test",
+    "test:watch": "cd server && npm run test:watch",
+    "build": "cd server && npm run build && cd ../client && npm run build",
+    "typecheck": "cd server && npm run typecheck && cd ../client && npm run typecheck"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
