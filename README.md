@@ -1,5 +1,5 @@
-# DevAtlas Core
-
+# DevAtlas Core 
+ 
 **DevAtlas Core** is a developer intelligence platform combining **RepoAtlas** (deep repository AST intelligence & dependency graphing) and **ChangeScope** (change blast-radius analysis with explainable heuristic risk estimation).
 
 Built as a final-year engineering project vertical slice, DevAtlas Core provides repository analysis without executing untrusted code or introducing external graph databases or LLMs.
